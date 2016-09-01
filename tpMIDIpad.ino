@@ -18,6 +18,8 @@
 
 #define CHANNEL  1 // Send all messages on channel 1.
 
+#define FILTLEN 3
+
 enum{
   PAD_X,
   PAD_Y,
@@ -71,6 +73,12 @@ int first = 0, second = 0;
 uint8_t ctIdx = 0;
 t_midiMsg msg;
 
+uint16_t maxPadInt = 580;    // 583 corresponds to max pad values of ~2.85 v 
+uint16_t minPadInt = 5;   
+
+uint8_t filtIdx = 0;
+uint16_t LPF[FILTLEN];
+
 void setup() // The setup runs only once, at startup.
 {
   pinMode(GATE, OUTPUT);
@@ -86,6 +94,11 @@ void setup() // The setup runs only once, at startup.
   Serial.begin(31250);  // Start a serial connection @115200 baud or bits per second on digital pin 0 and 1, this is the connection to the ATmega16U2, which runs the MIDI firmware.
   delay(2000);           // Wait 2 seconds before sending messages, to be sure everything is set up, and to make uploading new sketches easier.
   digitalWrite(13, HIGH);// Turn on the LED, when the loop is about to start.
+
+  for(uint8_t i=0; i<FILTLEN; ++i){
+    LPF[i] = 0;
+  }
+  
 }
 
 int lookUpTuning(int & midiNote){
@@ -145,6 +158,16 @@ void noteOff(int& note_){
   }
 }
 
+uint16_t mean(uint16_t * filt_)
+{
+  uint16_t mean=0;
+  for(int i=0; i<FILTLEN; ++i){
+    mean += filt_[i];
+  }
+
+  return mean/FILTLEN;
+}
+
 void loop() // The loop keeps on repeating forever.
 {
   
@@ -198,18 +221,19 @@ void loop() // The loop keeps on repeating forever.
   */
   
   
-  /************** WRITE MIDI CONTROLLER DATA *********************/
-  uint16_t maxPadInt = 583;    // corresponds to max pad values of ~2.85 v 
+  /************** WRITE MIDI CONTROLLER DATA *********************/ 
   
   uint16_t currVal=0;
   currVal = analogRead(ctIdx);
   if( ctIdx == PAD_X || ctIdx == PAD_Y ){
-    if( currVal < maxPadInt ){
+    if( currVal >= minPadInt && currVal <= maxPadInt ){
       if( ctIdx == PAD_Y ){
         currVal = maxPadInt - currVal;
-        if( currVal < 0 ) { currVal = 0; }
+        if( currVal < minPadInt ) { currVal = minPadInt; }
       }
-      analogVal[ctIdx] = currVal >> 2;
+      analogVal[ctIdx] = map(currVal, minPadInt, maxPadInt, 0, 127);
+      //analogVal[ctIdx] = mean(LPF);     
+      //analogVal[ctIdx] = currVal >> 2;
     }
   }
   else{
@@ -247,6 +271,10 @@ void loop() // The loop keeps on repeating forever.
   ++ctIdx;
   if( ctIdx >= NUMBER_OF_ANALOG_INPUTS ){
     ctIdx = 0;
+  }
+  ++filtIdx;
+  if( filtIdx >= FILTLEN ){
+    filtIdx = 0;
   }
 
 }

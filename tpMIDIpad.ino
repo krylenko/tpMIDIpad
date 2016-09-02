@@ -74,7 +74,7 @@ uint8_t ctIdx = 0;
 t_midiMsg msg;
 
 uint16_t maxPadInt = 580;    // 583 corresponds to max pad values of ~2.85 v 
-uint16_t minPadInt = 5;   
+uint16_t minPadInt = 15;   
 
 uint8_t filtIdx = 0;
 uint16_t LPF[FILTLEN];

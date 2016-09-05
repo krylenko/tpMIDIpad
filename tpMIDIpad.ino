@@ -73,8 +73,8 @@ int first = 0, second = 0;
 uint8_t ctIdx = 0;
 t_midiMsg msg;
 
-uint16_t maxPadInt = 580;    // 583 corresponds to max pad values of ~2.85 v 
-uint16_t minPadInt = 15;   
+uint16_t maxPadInt = 600;    // 583 corresponds to max pad values of ~2.85 v 
+uint16_t minPadInt = 0;   
 
 uint8_t filtIdx = 0;
 uint16_t LPF[FILTLEN];
@@ -228,10 +228,11 @@ void loop() // The loop keeps on repeating forever.
   if( ctIdx == PAD_X || ctIdx == PAD_Y ){
     if( currVal >= minPadInt && currVal <= maxPadInt ){
       if( ctIdx == PAD_Y ){
-        currVal = maxPadInt - currVal;
-        if( currVal < minPadInt ) { currVal = minPadInt; }
+        analogVal[ctIdx] = map(currVal, maxPadInt, minPadInt, 0, 127);
       }
-      analogVal[ctIdx] = map(currVal, minPadInt, maxPadInt, 0, 127);
+      else{
+        analogVal[ctIdx] = map(currVal, minPadInt, maxPadInt, 0, 127);
+      }
       //analogVal[ctIdx] = mean(LPF);     
       //analogVal[ctIdx] = currVal >> 2;
     }

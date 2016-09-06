@@ -38,20 +38,7 @@ int controllers[NUMBER_OF_ANALOG_INPUTS] = {
   //107     // A5
 };  
 
-const int lenLUT = 53;
-const int tuneLUT[lenLUT] = {
-  13, 14, 14, 15, 16, 17, 18, 19, 20, 22, 23, 24,
-  26, 27, 29, 30, 32, 34, 36, 38, 41, 43, 46, 48, 51, 54, 57, 61, 65, 68, 72,
-  77, 81, 86, 91, 97, 102, 108, 115, 122, 129, 137, 145, 153, 163, 172, 182, 193,
-  205, 217, 230, 244, 258
-};
-
-const int notesTracked = 15;
-int noteIdx = 0;
-int noteStack[notesTracked];
-
 uint16_t analogVal[NUMBER_OF_ANALOG_INPUTS];  // We declare an array for the values from the analog inputs
-
 uint16_t analogOld[NUMBER_OF_ANALOG_INPUTS]; // We declare an array for the previous analog values. 
 
 /* The format of the message to send via serial. We create a new data type, that can store 4 values at once.  This will be easier to send as MIDI. */
@@ -73,11 +60,8 @@ int first = 0, second = 0;
 uint8_t ctIdx = 0;
 t_midiMsg msg;
 
-uint16_t maxPadInt = 600;    // 583 corresponds to max pad values of ~2.85 v 
-uint16_t minPadInt = 0;   
-
-uint8_t filtIdx = 0;
-uint16_t LPF[FILTLEN];
+uint16_t maxPadInt_x = 585;  
+uint16_t maxPadInt_y = 678;   
 
 void setup() // The setup runs only once, at startup.
 {
@@ -88,158 +72,43 @@ void setup() // The setup runs only once, at startup.
   for(int i = 0; i < NUMBER_OF_ANALOG_INPUTS; i++){  // We make all values of analogOld -1, so it will always be different from any possible analog reading.
     analogOld[i]=-1;
   }
-  for(int i = 0; i < notesTracked; ++i){
-    noteStack[i] = 0;
-  }
+
   Serial.begin(31250);  // Start a serial connection @115200 baud or bits per second on digital pin 0 and 1, this is the connection to the ATmega16U2, which runs the MIDI firmware.
   delay(2000);           // Wait 2 seconds before sending messages, to be sure everything is set up, and to make uploading new sketches easier.
   digitalWrite(13, HIGH);// Turn on the LED, when the loop is about to start.
-
-  for(uint8_t i=0; i<FILTLEN; ++i){
-    LPF[i] = 0;
-  }
   
-}
-
-int lookUpTuning(int & midiNote){
-  
-  int mapNote = 0;
-  int shiftNote = midiNote - OCTAVE_OFFSET;
-  
-  if( shiftNote > HIGHEST_NOTE ){
-    mapNote = tuneLUT[HIGHEST_NOTE-LOWEST_NOTE];
-  }
-  else if( shiftNote < LOWEST_NOTE ){
-    mapNote = tuneLUT[0];
-  }
-  else{
-    mapNote = tuneLUT[shiftNote-LOWEST_NOTE];
-  }
-  
-  return mapNote;
-  
-}
-
-void noteOn(int& note_){
-  noteStack[noteIdx] = note_;
-  noteIdx++;
-  if( noteIdx > notesTracked ){
-    noteIdx = 0;
-  }
-  analogWrite(CV_OUT, lookUpTuning(note_));
-  digitalWrite(GATE, HIGH); 
-}
-
-void noteOff(int& note_){
-  
-  // "turn off" this particular note
-  int lowestNote = HIGHEST_NOTE;
-  for(int i=notesTracked-1; i>=0; --i){
-    if( noteStack[i] == note_ ){
-      noteStack[i] = 0;
-    }
-    else{
-      if( noteStack[i] <= lowestNote && noteStack[i] != 0 ){
-        lowestNote = noteStack[i];
-      }
-    }
-  } 
-  if( lowestNote != HIGHEST_NOTE ){
-    noteOn(lowestNote);
-  }
-  
-  // check the stack to see if other notes are active
-  int flag = 0;
-  for(int i=0; i<notesTracked; ++i){
-    flag |= noteStack[i];
-  } 
-  if( !flag ){
-    digitalWrite(GATE,LOW);
-  }
-}
-
-uint16_t mean(uint16_t * filt_)
-{
-  uint16_t mean=0;
-  for(int i=0; i<FILTLEN; ++i){
-    mean += filt_[i];
-  }
-
-  return mean/FILTLEN;
 }
 
 void loop() // The loop keeps on repeating forever.
 {
   
-  /************** READ MIDI NOTE DATA *********************/
-  /*
-  // good code in this block, in case I need it again
-  if( Serial.available() > 0 ){
-    statusByte = Serial.read();
-  
-    if( statusByte == NOTE_ON ){
-      while( Serial.available() == 0 );
-      noteByte = Serial.read();
-      noteOn(noteByte);  
-    }
-    
-    if( statusByte == NOTE_OFF ){
-      while( Serial.available() == 0 );      
-      noteByte = Serial.read();
-      noteOff(noteByte);
-    }
-    
-  }
-  */
-  /*
-  if( Serial.available() > 0 ){
-    statusByte = Serial.read();
-    
-    if( statusByte == NOTE_ON ){
-      while( Serial.available() == 0 );
-      noteByte = Serial.read();
-      analogWrite(CV_OUT, lookUpTuning(noteByte) );
-      currNote = noteByte;
-      if( !playing ){
-        digitalWrite(GATE, HIGH);
-        playing = 1;
-      }      
-    }
-    
-    if( statusByte == NOTE_OFF ){
-      while( Serial.available() == 0 );      
-      noteByte = Serial.read();      
-      if( playing && noteByte == currNote ){
-        digitalWrite(GATE, LOW);
-        analogWrite(CV_OUT, LOWEST_NOTE);
-        currNote = 0;
-        playing = 0;
-      }
-    }
-    
-  }
-  */
-  
-  
   /************** WRITE MIDI CONTROLLER DATA *********************/ 
   
   uint16_t currVal=0;
+  uint16_t minPadInt = 30;
   currVal = analogRead(ctIdx);
-  if( ctIdx == PAD_X || ctIdx == PAD_Y ){
-    if( currVal >= minPadInt && currVal <= maxPadInt ){
-      if( ctIdx == PAD_Y ){
-        analogVal[ctIdx] = map(currVal, maxPadInt, minPadInt, 0, 127);
-      }
-      else{
-        analogVal[ctIdx] = map(currVal, minPadInt, maxPadInt, 0, 127);
-      }
-      //analogVal[ctIdx] = mean(LPF);     
-      //analogVal[ctIdx] = currVal >> 2;
-    }
+
+  switch(ctIdx){
+    case PAD_X:
+    delay(7);
+    currVal = analogRead(ctIdx);    
+    if( currVal >= minPadInt && currVal <= maxPadInt_x-20 ){
+        analogVal[ctIdx] = map(currVal, minPadInt, maxPadInt_x-20, 0, 127);
+        analogVal[ctIdx] = constrain(analogVal[ctIdx], 0, 127);
+    }    
+    break;
+    case PAD_Y:
+    delay(7);
+    currVal = analogRead(ctIdx);    
+    if( currVal >= minPadInt-5 && currVal <= maxPadInt_y-5 ){
+      analogVal[ctIdx] = map(currVal, maxPadInt_y-5, minPadInt-5, 0, 127);
+    }    
+    break;
+    default:
+    analogVal[ctIdx] = currVal >> 3;
+    break;
   }
-  else{
-    analogVal[ctIdx] = currVal >> 3;                // The resolution of the Arduino's ADC is 10 bit, and the MIDI message has only 7 bits, 10 - 7 = 3, so we divide by 2^3, or 8.
-  }
+  
   if(analogVal[ctIdx] != analogOld[ctIdx]){              // Only send the value, if it is a different value than last time.
     msg.commChannel = CC;
     msg.commChannel += CHANNEL-1;                     // Channels are zero based (0 = ch1, and F = ch16)
@@ -249,33 +118,12 @@ void loop() // The loop keeps on repeating forever.
     Serial.write(msg.data1);
     Serial.write(msg.data2);
     
-    /*
-    Serial.print("\ncommChannel\n");
-    Serial.print(msg.commChannel, BIN);
-    Serial.print("\nctrl num\n");      
-    Serial.print(msg.data1, DEC);
-    Serial.print("\ndata\n");      
-    Serial.print(msg.data2, DEC);
-    
-    Serial.print("\n");
-    Serial.print(sizeof(msg.commChannel),DEC);
-    Serial.print("\n");
-    Serial.print(sizeof(msg.data1),DEC);
-    Serial.print("\n");
-    Serial.print(sizeof(msg.data2),DEC);
-    Serial.print("\n");
-    Serial.print(sizeof(msg),DEC);      
-    */
     analogOld[ctIdx] = analogVal[ctIdx];                   // Put the analog values in the array for old analog values, so we can compare the new values with the previous ones.
   }
   
   ++ctIdx;
   if( ctIdx >= NUMBER_OF_ANALOG_INPUTS ){
     ctIdx = 0;
-  }
-  ++filtIdx;
-  if( filtIdx >= FILTLEN ){
-    filtIdx = 0;
   }
 
 }

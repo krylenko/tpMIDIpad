@@ -1,8 +1,6 @@
 // Arduino Uno MIDI touch pad / control surface
 
-#define NOTE_OFF       0x80
-#define NOTE_ON        0x90
-#define CC             0xB0
+#define CC                  0xB0
 #define MIDI_CHANNEL        1
 
 // define switch and button (momentary) inputs
@@ -21,6 +19,7 @@ uint16_t switchVal[NUM_SWITCHES];
 uint16_t switchOld[NUM_SWITCHES];
 
 #define NUM_BUTTONS         5
+#define CHANGE_VALID_CT     5
 enum{
   PUSH_ROUND = 6,
   BUTTON_RIGHT_TOP = 7,
@@ -35,8 +34,10 @@ int buttons[NUM_BUTTONS] = {
   BUTTON_LEFT_BOTTOM,
   BUTTON_LEFT_TOP
 };
-uint16_t buttonVal[NUM_BUTTONS];
-uint16_t buttonOld[NUM_BUTTONS];
+uint16_t highCt[NUM_BUTTONS];
+uint16_t lowCt[NUM_BUTTONS];
+bool sendHigh[NUM_BUTTONS];
+bool sendLow[NUM_BUTTONS];
 
 // define analog inputs
 #define NUM_ANALOG_INPUTS   6
@@ -61,8 +62,13 @@ int controllers[NUM_ANALOG_INPUTS + NUM_SWITCHES + NUM_BUTTONS] = {
   106,      // A4     left knob top       CC 106
   107,      // A5     left knob bot       CC 107
   108,      // D5     lower toggle        CC 108
-  109,      // D9     toggle top left     CC 109
-  110       // D10    toggle top right    CC 110
+  109,      // D6     round push          CC 109  
+  110,      // D7     right gray but top  CC 110
+  111,      // D8     right gray but bot  CC 111      
+  112,      // D9     toggle top left     CC 112
+  113,      // D10    toggle top right    CC 113
+  114,      // D11    left gray but bot   CC 114
+  115       // D12    left gray but top   CC 115    
 };  
 uint16_t analogVal[NUM_ANALOG_INPUTS]; 
 uint16_t analogOld[NUM_ANALOG_INPUTS];
@@ -75,13 +81,6 @@ typedef struct {
   uint8_t data2;        // third  byte   : second value (0-127), controller value or velocity
 } t_midiMsg;
 
-int statusByte = 0;
-int noteByte = 0;
-uint8_t playing = 0;
-int currNote = 0;
-
-int first = 0, second = 0;
-
 uint8_t ctIdx = 0;
 t_midiMsg msg;
 
@@ -92,15 +91,20 @@ void setup()
 {
 
   for (int i = 0; i < NUM_ANALOG_INPUTS; i++) {
+    analogVal[i] = 0;
     analogOld[i] = -1;
   }
   for (int j = 0; j < NUM_SWITCHES; ++j) {
     pinMode(switches[j], INPUT);
+    switchVal[j] = 0;
     switchOld[j] = -1;
   }
   for (int k = 0; k < NUM_BUTTONS; ++k) {
     pinMode(buttons[k], INPUT);
-    switchOld[k] = -1;
+    highCt[k] = 0;
+    lowCt[k] = 0;    
+    sendHigh[k] = false;
+    sendLow[k] = false;    
   }  
 
   Serial.begin(31250);   
@@ -164,22 +168,53 @@ void loop()
   }
 
   // read and write states of switches
-  for (int m = NUM_ANALOG_INPUTS; m < NUM_ANALOG_INPUTS + NUM_SWITCHES; ++m) {                    
-    int tempVal = digitalRead(switches[m - NUM_ANALOG_INPUTS]);
-    if (tempVal == HIGH) {
-      tempVal = 127;
-    } else {
-      tempVal = 0;                
-    }
-    switchVal[m - NUM_ANALOG_INPUTS] = tempVal;        
-    if( switchVal[m - NUM_ANALOG_INPUTS] != switchOld[m - NUM_ANALOG_INPUTS] ) {           
-      msg.data1 = controllers[m];
-      msg.data2 = switchVal[m - NUM_ANALOG_INPUTS];
+  for (int m = 0; m < NUM_SWITCHES; ++m) {                    
+    int tempVal = digitalRead(switches[m]);
+    tempVal == HIGH ? tempVal = 127 : tempVal = 0;                
+    switchVal[m] = tempVal;        
+    if( switchVal[m] != switchOld[m] ) {           
+      msg.data1 = controllers[m + NUM_ANALOG_INPUTS];
+      msg.data2 = switchVal[m];
       Serial.write(msg.commChannel);
       Serial.write(msg.data1);
       Serial.write(msg.data2);
-      switchOld[m - NUM_ANALOG_INPUTS] = switchVal[m - NUM_ANALOG_INPUTS];
+      switchOld[m] = switchVal[m];
     }    
+  }
+
+  // read and write states of buttons
+  for (int p = 0; p < NUM_BUTTONS; ++p) {
+    if ( digitalRead(buttons[p]) ) {
+      ++highCt[p];
+    } else {
+      if( highCt > 0 ) {
+        ++lowCt[p];
+      }
+    }
+    if (highCt[p] == CHANGE_VALID_CT) {
+      sendHigh[p] = true;
+    }
+    if (lowCt[p] == CHANGE_VALID_CT) {
+      sendLow[p] = true;
+    }    
+    if (sendHigh[p]) {
+      msg.data1 = controllers[p + NUM_ANALOG_INPUTS + NUM_SWITCHES];
+      msg.data2 = 127;
+      Serial.write(msg.commChannel);
+      Serial.write(msg.data1);
+      Serial.write(msg.data2);
+      sendHigh[p] = false;
+      lowCt[p] = 0;
+    } 
+    if (sendLow[p]) {
+      msg.data1 = controllers[p + NUM_ANALOG_INPUTS + NUM_SWITCHES];
+      msg.data2 = 0;
+      Serial.write(msg.commChannel);
+      Serial.write(msg.data1);
+      Serial.write(msg.data2);
+      sendLow[p] = false;
+      highCt[p] = 0;
+    }     
   }
 
 }

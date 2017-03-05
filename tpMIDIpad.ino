@@ -166,7 +166,7 @@ void loop()
     {
       analogVal[ctIdx] = currVal >> 3;
       if (lfoUpdateMode) {
-        lfoDepth = double(currVal/1023.0) + 0.01;
+        lfoDepth = double(currVal/1023.0);
       }
       break;      
     }

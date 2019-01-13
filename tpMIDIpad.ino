@@ -11,7 +11,6 @@ uint8_t * lfoPtr = tri;
 uint8_t lfoPhase = 0;
 uint16_t lfoSpeed = 5;
 double lfoDepth = 1.0;
-bool lfoUpdateMode = false;
 uint8_t lfoDownsampleFactor = 10;   // ramp this up for noise waveforms
 
 // define switch and button (momentary) inputs
@@ -165,17 +164,13 @@ void loop()
     case POT_BROWN_BOTTOM:
     {
       analogVal[ctIdx] = currVal >> 3;
-      if (lfoUpdateMode) {
-        lfoDepth = double(currVal/1023.0);
-      }
+      lfoDepth = double(currVal/1023.0);
       break;      
     }
     case POT_TOP_RIGHT:
     {
       analogVal[ctIdx] = currVal >> 3;
-      if (lfoUpdateMode) {
-       lfoSpeed = int(currVal / 10.0) + 1;
-      }
+      lfoSpeed = int(currVal / 10.0) + 1;
       break;      
     }    
     default:
@@ -187,12 +182,10 @@ void loop()
   
   if (analogVal[ctIdx] != analogOld[ctIdx]) {                                  
     msg.data1 = controllers[ctIdx];               
-    msg.data2 = analogVal[ctIdx];
-    if ( !lfoUpdateMode ) {                  
-      Serial.write(msg.commChannel);
-      Serial.write(msg.data1);
-      Serial.write(msg.data2);
-    }
+    msg.data2 = analogVal[ctIdx];                 
+    Serial.write(msg.commChannel);
+    Serial.write(msg.data1);
+    Serial.write(msg.data2);
     analogOld[ctIdx] = analogVal[ctIdx];                   
   }
   
@@ -210,11 +203,9 @@ void loop()
     if ( switchVal[m] != switchOld[m] ) {           
       msg.data1 = controllers[m + NUM_ANALOG_INPUTS];
       msg.data2 = switchVal[m];
-      if ( !lfoUpdateMode ) {
-        Serial.write(msg.commChannel);
-        Serial.write(msg.data1);
-        Serial.write(msg.data2);
-      }
+      Serial.write(msg.commChannel);
+      Serial.write(msg.data1);
+      Serial.write(msg.data2);
       switchOld[m] = switchVal[m];
     }
     if (switches[m] == TOGGLE_TOP_RIGHT) {
@@ -236,9 +227,6 @@ void loop()
     }
     if (highCt[p] == CHANGE_VALID_CT) {
       sendHigh[p] = true;
-      if (buttons[p] == BUTTON_LEFT_TOP) {
-        lfoUpdateMode == true ? lfoUpdateMode = false : lfoUpdateMode = true;
-      }
     }
     if (lowCt[p] == CHANGE_VALID_CT) {
       sendLow[p] = true;
@@ -247,52 +235,46 @@ void loop()
     if (sendHigh[p]) {
       msg.data1 = controllers[p + NUM_ANALOG_INPUTS + NUM_SWITCHES];
       msg.data2 = 127;
-      if ( !lfoUpdateMode ){
-        Serial.write(msg.commChannel);
-        Serial.write(msg.data1);
-        Serial.write(msg.data2);
-      }
+      Serial.write(msg.commChannel);
+      Serial.write(msg.data1);
+      Serial.write(msg.data2);
       sendHigh[p] = false;
       lowCt[p] = 0;
     } 
     if (sendLow[p]) {
       msg.data1 = controllers[p + NUM_ANALOG_INPUTS + NUM_SWITCHES];
       msg.data2 = 0;
-      if( !lfoUpdateMode ){
-        Serial.write(msg.commChannel);
-        Serial.write(msg.data1);
-        Serial.write(msg.data2);
-      }
+      Serial.write(msg.commChannel);
+      Serial.write(msg.data1);
+      Serial.write(msg.data2);
       sendLow[p] = false;
       highCt[p] = 0;
     }     
   }
 
   // send LFO output to LED and MIDI
-
-  if (lfoUpdateMode) {   
-    uint8_t switchState = binValOne << 1 | binValTwo;
-    switch (switchState) {
-      case 0:
-      {
-        lfoPtr = tri;
-        break;
-      }
-      case 1:
-      {
-        lfoPtr = squ50;
-        break;
-      }
-      case 2:
-      {
-        lfoPtr = noise;
-        break;
-      }
-      case 3:
-      {
-        lfoPtr = sawDown;
-        break;
-      }
+ 
+  uint8_t switchState = binValOne << 1 | binValTwo;
+  switch (switchState) {
+    case 0:
+    {
+      lfoPtr = tri;
+      break;
+    }
+    case 1:
+    {
+      lfoPtr = squ50;
+      break;
+    }
+    case 2:
+    {
+      lfoPtr = noise;
+      break;
+    }
+    case 3:
+    {
+      lfoPtr = sawDown;
+      break;
     }
   }
   

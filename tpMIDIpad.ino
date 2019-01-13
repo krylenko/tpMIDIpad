@@ -98,7 +98,7 @@ uint8_t ctIdx = 0;
 t_midiMsg msg;
 
 uint16_t maxPadInt_x = 585;
-uint16_t maxPadInt_y = 678;
+uint16_t maxPadInt_y = 850;
 
 void setup()
 {
@@ -184,8 +184,9 @@ void loop()
       {
         delay(7);
         currVal = analogRead(ctIdx);
-        if ( currVal >= minPadInt - 5 && currVal <= maxPadInt_y - 5 ) {
-          analogVal[ctIdx] = map(currVal, maxPadInt_y - 5, minPadInt - 5, 0, 127);
+        if ( currVal >= minPadInt - 25 && currVal <= maxPadInt_y - 5 ) {
+          analogVal[ctIdx] = map(currVal, maxPadInt_y - 5, minPadInt - 25, 0, 127);
+          analogVal[ctIdx] = constrain(analogVal[ctIdx], 0, 127);
         }
         break;
       }

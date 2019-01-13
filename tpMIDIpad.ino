@@ -8,10 +8,10 @@
 #define LFO_OUT             3
 #define LFO_SPD_DIVISIONS   3
 #define LFO_CC              116
-uint8_t * lfoPtr = tri;
+double lfoMix = 0.0;
 uint8_t lfoPhase = 0;
 uint16_t lfoSpeed = 5;
-double lfoSpdDivisions[LFO_SPD_DIVISIONS] = {25.0, 10.0, 1.0};
+double lfoSpdDivisions[LFO_SPD_DIVISIONS] = {20.0, 12.0, 3.0};
 uint8_t lfoSpdIdx = 1;
 double lfoDepth = 1.0;
 uint8_t lfoDownsampleFactor = 10;   // ramp this up for noise waveforms
@@ -176,6 +176,12 @@ void loop()
         lfoSpeed = int(currVal / lfoSpdDivisions[lfoSpdIdx]) + 1;
         break;
       }
+    case POT_TOP_RIGHT:
+      {
+        analogVal[ctIdx] = currVal >> 3;
+        lfoMix = double(4.0 * currVal / 1023.0);
+        break;
+      }
     default:
       {
         analogVal[ctIdx] = currVal >> 3;
@@ -269,33 +275,28 @@ void loop()
     }
   }
 
-  // send LFO output to LED and MIDI
-
-  uint8_t switchState = binValOne << 1 | binValTwo;
-  switch (switchState) {
-    case 0:
-      {
-        lfoPtr = tri;
-        break;
-      }
-    case 1:
-      {
-        lfoPtr = squ50;
-        break;
-      }
-    case 2:
-      {
-        lfoPtr = noise;
-        break;
-      }
-    case 3:
-      {
-        lfoPtr = sawDown;
-        break;
-      }
+  // blend LFO waveforms
+  double tmpMix = 0.0;
+  double alpha = 1.0;
+  if (lfoMix >= 0.0 && lfoMix <= 1.0) {
+    alpha = lfoMix;
+    tmpMix = (1.0 - alpha) * tri[lfoPhase] + alpha * noise[lfoPhase];
   }
-
-  volatile uint8_t lfoValue = uint8_t(lfoPtr[lfoPhase] * lfoDepth / 1.25);
+  if (lfoMix > 1.0 && lfoMix <= 2.0) {
+    alpha = lfoMix - 1.0;
+    tmpMix = (1.0 - alpha) * noise[lfoPhase] + alpha * sawUp[lfoPhase];
+  }
+  if (lfoMix > 2.0 && lfoMix <= 3.0) {
+    alpha = lfoMix - 2.0;
+    tmpMix = (1.0 - alpha) * sawUp[lfoPhase] + alpha * squ50[lfoPhase];  
+  }
+  if (lfoMix > 3.0 && lfoMix <= 4.0) {
+    alpha = lfoMix - 3.0;
+    tmpMix = (1.0 - alpha) * squ50[lfoPhase] + alpha * sawDown[lfoPhase];   
+  }      
+  
+  // send LFO output to LED and MID
+  volatile uint8_t lfoValue = uint8_t(tmpMix * lfoDepth / 1.25);
   uint16_t midiLFOValue = uint16_t(lfoValue * 1.25 / 2.0);
   if (midiLFOValue < 0) {
     midiLFOValue = 0;

@@ -135,6 +135,31 @@ void loop()
 
   /************** WRITE MIDI CONTROLLER DATA *********************/
 
+  // read and write states of switches
+  uint8_t enablePadX = 1, enablePadY = 1, enableLFO = 1;
+  for (int m = 0; m < NUM_SWITCHES; ++m) {
+    int tempVal = digitalRead(switches[m]);
+    tempVal == HIGH ? tempVal = 127 : tempVal = 0;
+    switchVal[m] = tempVal;
+    if ( switchVal[m] != switchOld[m] ) {
+      msg.data1 = controllers[m + NUM_ANALOG_INPUTS];
+      msg.data2 = switchVal[m];
+      Serial.write(msg.commChannel);
+      Serial.write(msg.data1);
+      Serial.write(msg.data2);
+      switchOld[m] = switchVal[m];
+    }
+    if (switches[m] == TOGGLE_TOP_LEFT) {
+      switchVal[m] == 127 ? enablePadY = 1 : enablePadY = 0;
+    }
+    if (switches[m] == TOGGLE_TOP_RIGHT) {
+      switchVal[m] == 127 ? enableLFO = 1 : enableLFO = 0;
+    }
+    if (switches[m] == TOGGLE_LOWER) {
+      switchVal[m] == 127 ? enablePadX = 1 : enablePadX = 0;
+    }        
+  }
+
   // read and output analog MIDI controllers
   uint16_t currVal = 0;
   uint16_t minPadInt = 30;
@@ -190,39 +215,19 @@ void loop()
   }
 
   if (analogVal[ctIdx] != analogOld[ctIdx]) {
-    msg.data1 = controllers[ctIdx];
-    msg.data2 = analogVal[ctIdx];
-    Serial.write(msg.commChannel);
-    Serial.write(msg.data1);
-    Serial.write(msg.data2);
+    if( (ctIdx == PAD_X && enablePadX) || (ctIdx == PAD_Y && enablePadY) || (ctIdx != PAD_X && ctIdx != PAD_Y)) {
+      msg.data1 = controllers[ctIdx];
+      msg.data2 = analogVal[ctIdx];
+      Serial.write(msg.commChannel);
+      Serial.write(msg.data1);
+      Serial.write(msg.data2);
+    }
     analogOld[ctIdx] = analogVal[ctIdx];
   }
 
   ++ctIdx;
   if ( ctIdx >= NUM_ANALOG_INPUTS ) {
     ctIdx = 0;
-  }
-
-  // read and write states of switches
-  uint8_t binValOne = 0, binValTwo = 0;
-  for (int m = 0; m < NUM_SWITCHES; ++m) {
-    int tempVal = digitalRead(switches[m]);
-    tempVal == HIGH ? tempVal = 127 : tempVal = 0;
-    switchVal[m] = tempVal;
-    if ( switchVal[m] != switchOld[m] ) {
-      msg.data1 = controllers[m + NUM_ANALOG_INPUTS];
-      msg.data2 = switchVal[m];
-      Serial.write(msg.commChannel);
-      Serial.write(msg.data1);
-      Serial.write(msg.data2);
-      switchOld[m] = switchVal[m];
-    }
-    if (switches[m] == TOGGLE_TOP_RIGHT) {
-      switchVal[m] == 127 ? binValOne = 1 : binValOne = 0;
-    }
-    if (switches[m] == TOGGLE_TOP_LEFT) {
-      switchVal[m] == 127 ? binValTwo = 1 : binValTwo = 0;
-    }
   }
 
   // read and write states of buttons
@@ -305,11 +310,13 @@ void loop()
     midiLFOValue = 127;
   }
   analogWrite(LFO_OUT, lfoValue);
-  msg.data1 = LFO_CC;
-  msg.data2 = midiLFOValue;
-  Serial.write(msg.commChannel);
-  Serial.write(msg.data1);
-  Serial.write(msg.data2);
+  if (enableLFO) {
+    msg.data1 = LFO_CC;
+    msg.data2 = midiLFOValue;
+    Serial.write(msg.commChannel);
+    Serial.write(msg.data1);
+    Serial.write(msg.data2);
+  }
 
   if (lfoDownsampleCt == lfoDownsampleFactor) {
     lfoPhase += lfoSpeed;

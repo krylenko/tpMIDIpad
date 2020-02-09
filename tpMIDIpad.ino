@@ -1,5 +1,6 @@
 // Arduino Uno MIDI touch pad / control surface
 
+#include <avr/pgmspace.h>
 #include "waves.h"
 
 #define CC                  0xB0
@@ -15,6 +16,7 @@ double lfoSpdDivisions[LFO_SPD_DIVISIONS] = {20.0, 12.0, 3.0};
 uint8_t lfoSpdIdx = 1;
 double lfoDepth = 1.0;
 uint8_t lfoDownsampleFactor = 10;   // ramp this up for noise waveforms
+uint16_t lastLFOvalue = 1000;
 
 // define switch and button (momentary) inputs
 #define NUM_SWITCHES        3
@@ -97,8 +99,9 @@ typedef struct {
 uint8_t ctIdx = 0;
 t_midiMsg msg;
 
+uint16_t minPadInt = 30;
 uint16_t maxPadInt_x = 585;
-uint16_t maxPadInt_y = 850;
+uint16_t maxPadInt_y = 690;
 
 void setup()
 {
@@ -162,7 +165,6 @@ void loop()
 
   // read and output analog MIDI controllers
   uint16_t currVal = 0;
-  uint16_t minPadInt = 30;
   currVal = analogRead(ctIdx);
 
   msg.commChannel = CC;
@@ -184,10 +186,10 @@ void loop()
       {
         delay(7);
         currVal = analogRead(ctIdx);
-        if ( currVal >= minPadInt - 25 && currVal <= maxPadInt_y - 5 ) {
-          analogVal[ctIdx] = map(currVal, maxPadInt_y - 5, minPadInt - 25, 0, 127);
+        if ((currVal >= minPadInt) && (currVal <= maxPadInt_y)) {
+          analogVal[ctIdx] = map(currVal, maxPadInt_y, minPadInt, 0, 127);
           analogVal[ctIdx] = constrain(analogVal[ctIdx], 0, 127);
-        }
+        }        
         break;
       }
     case POT_BROWN_BOTTOM:
@@ -286,19 +288,19 @@ void loop()
   double alpha = 1.0;
   if (lfoMix >= 0.0 && lfoMix <= 1.0) {
     alpha = lfoMix;
-    tmpMix = (1.0 - alpha) * tri[lfoPhase] + alpha * noise[lfoPhase];
+    tmpMix = (1.0 - alpha) * pgm_read_byte_near(tri + lfoPhase) + alpha * pgm_read_byte_near(noise + lfoPhase);
   }
   if (lfoMix > 1.0 && lfoMix <= 2.0) {
     alpha = lfoMix - 1.0;
-    tmpMix = (1.0 - alpha) * noise[lfoPhase] + alpha * sawUp[lfoPhase];
+    tmpMix = (1.0 - alpha) * pgm_read_byte_near(noise + lfoPhase) + alpha * pgm_read_byte_near(sawUp + lfoPhase);
   }
   if (lfoMix > 2.0 && lfoMix <= 3.0) {
     alpha = lfoMix - 2.0;
-    tmpMix = (1.0 - alpha) * sawUp[lfoPhase] + alpha * squ50[lfoPhase];  
+    tmpMix = (1.0 - alpha) * pgm_read_byte_near(sawUp + lfoPhase) + alpha * pgm_read_byte_near(squ50 + lfoPhase);  
   }
   if (lfoMix > 3.0 && lfoMix <= 4.0) {
     alpha = lfoMix - 3.0;
-    tmpMix = (1.0 - alpha) * squ50[lfoPhase] + alpha * sawDown[lfoPhase];   
+    tmpMix = (1.0 - alpha) * pgm_read_byte_near(squ50 + lfoPhase) + alpha * pgm_read_byte_near(sawDown + lfoPhase);   
   }      
   
   // send LFO output to LED and MID
@@ -311,12 +313,13 @@ void loop()
     midiLFOValue = 127;
   }
   analogWrite(LFO_OUT, lfoValue);
-  if (enableLFO) {
+  if (enableLFO && (midiLFOValue != lastLFOvalue)) {
     msg.data1 = LFO_CC;
     msg.data2 = midiLFOValue;
     Serial.write(msg.commChannel);
     Serial.write(msg.data1);
     Serial.write(msg.data2);
+    lastLFOvalue = midiLFOValue;
   }
 
   if (lfoDownsampleCt == lfoDownsampleFactor) {

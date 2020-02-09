@@ -1,9 +1,11 @@
+#include <avr/pgmspace.h>
+
 #define PHASE_SZ	256
 
 /**** SMOOTH WAVES ****/
 
 // triangle
-uint8_t tri[PHASE_SZ] = {
+const PROGMEM uint8_t tri[PHASE_SZ] = {
 0 ,
 0 , 1 , 1 , 2 , 2 , 3 , 4 , 4 , 5 , 6 , 6 , 7 , 8 , 9 , 9 , 10 ,
 11 , 12 , 12 , 13 , 14 , 15 , 16 , 17 , 18 , 18 , 19 , 20 , 21 , 22 , 23 , 24 ,
@@ -23,7 +25,7 @@ uint8_t tri[PHASE_SZ] = {
 59 , 55 , 52 , 48 , 44 , 40 , 36 , 32 , 28 , 23 , 19 , 15 , 10 , 6 , 1
 };
 
-uint8_t noise[PHASE_SZ] = {
+const PROGMEM uint8_t noise[PHASE_SZ] = {
 209 ,
 66 , 66 , 66 , 66 , 66 , 66 , 66 , 66 , 66 , 66 , 66 , 66 , 66 , 66 , 66 , 66 ,
 66 , 66 , 66 , 66 , 66 , 66 , 66 , 66 , 81 , 81 , 81 , 81 , 81 , 81 , 81 , 81 ,
@@ -46,7 +48,7 @@ uint8_t noise[PHASE_SZ] = {
 /***** SPIKY WAVES ****/
 
 // rising sawtooth wave
-uint8_t sawUp[PHASE_SZ] = {
+const PROGMEM uint8_t sawUp[PHASE_SZ] = {
 
 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 
 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 
@@ -68,7 +70,7 @@ uint8_t sawUp[PHASE_SZ] = {
 };
 
 // falling sawtooth wave
-uint8_t sawDown[PHASE_SZ] = {
+const PROGMEM uint8_t sawDown[PHASE_SZ] = {
 255 ,
 254 , 253 , 252 , 251 , 250 , 249 , 248 , 247 , 246 , 245 , 244 , 243 , 242 , 241 , 240 , 239 ,
 238 , 237 , 236 , 235 , 234 , 233 , 232 , 231 , 230 , 229 , 228 , 227 , 226 , 225 , 224 , 223 ,
@@ -90,7 +92,7 @@ uint8_t sawDown[PHASE_SZ] = {
 };
 
 // 50% square wave 
-uint8_t squ50[PHASE_SZ] = {
+const PROGMEM uint8_t squ50[PHASE_SZ] = {
 255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
 255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
 255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,

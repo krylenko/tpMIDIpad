@@ -6,6 +6,7 @@
 #define CC                  0xB0
 #define MIDI_CHANNEL        1
 
+#define LED_OUT             5
 #define LFO_OUT             3
 #define LFO_SPD_DIVISIONS   3
 #define LFO_CC              116
@@ -21,7 +22,7 @@ uint16_t lastLFOvalue = 1000;
 // define switch and button (momentary) inputs
 #define NUM_SWITCHES        3
 enum {
-  TOGGLE_LOWER = 5,
+  TOGGLE_LOWER = 4,
   TOGGLE_TOP_LEFT = 9,
   TOGGLE_TOP_RIGHT = 10
 };
@@ -76,7 +77,7 @@ int controllers[NUM_ANALOG_INPUTS + NUM_SWITCHES + NUM_BUTTONS] = {
   105,      // A3     top knob            CC 105
   106,      // A4     left knob top       CC 106
   107,      // A5     left knob bot       CC 107
-  108,      // D5     lower toggle        CC 108
+  108,      // D4     lower toggle        CC 108
   109,      // D6     round push          CC 109
   110,      // D7     right gray but top  CC 110
   111,      // D8     right gray but bot  CC 111
@@ -106,6 +107,8 @@ uint16_t maxPadInt_y = 690;
 void setup()
 {
 
+  pinMode(LED_OUT, OUTPUT);
+  digitalWrite(LED_OUT, 1);
   pinMode(LFO_OUT, OUTPUT);
   digitalWrite(LFO_OUT, 1);
 
@@ -303,7 +306,8 @@ void loop()
     tmpMix = (1.0 - alpha) * pgm_read_byte_near(squ50 + lfoPhase) + alpha * pgm_read_byte_near(sawDown + lfoPhase);   
   }      
   
-  // send LFO output to LED and MID
+  // send LFO output to LED, CV, and MIDI
+  volatile uint8_t ledValue = uint8_t(tmpMix);
   volatile uint8_t lfoValue = uint8_t(tmpMix * lfoDepth / 1.25);
   uint16_t midiLFOValue = uint16_t(lfoValue * 1.25 / 2.0);
   if (midiLFOValue < 0) {
@@ -312,6 +316,7 @@ void loop()
   if (midiLFOValue > 127) {
     midiLFOValue = 127;
   }
+  analogWrite(LED_OUT, ledValue);
   analogWrite(LFO_OUT, lfoValue);
   if (enableLFO && (midiLFOValue != lastLFOvalue)) {
     msg.data1 = LFO_CC;

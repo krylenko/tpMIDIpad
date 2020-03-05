@@ -8,12 +8,12 @@
 
 #define LED_OUT             5
 #define LFO_OUT             3
-#define LFO_SPD_DIVISIONS   3
+#define LFO_SPD_DIVISIONS   5
 #define LFO_CC              116
 double lfoMix = 0.0;
 uint8_t lfoPhase = 0;
 uint16_t lfoSpeed = 5;
-double lfoSpdDivisions[LFO_SPD_DIVISIONS] = {20.0, 12.0, 3.0};
+double lfoSpdDivisions[LFO_SPD_DIVISIONS] = {40.0, 20.0, 12.0, 3.0, 1.0};
 uint8_t lfoSpdIdx = 1;
 double lfoDepth = 1.0;
 uint8_t lfoDownsampleFactor = 10;   // ramp this up for noise waveforms

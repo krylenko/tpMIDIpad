@@ -111,3 +111,7 @@ const PROGMEM uint8_t squ50[PHASE_SZ] = {
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 };
 
+// user wave
+uint8_t userWave[PHASE_SZ];
+
+

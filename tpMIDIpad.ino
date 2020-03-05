@@ -112,6 +112,11 @@ void setup()
   pinMode(LFO_OUT, OUTPUT);
   digitalWrite(LFO_OUT, 1);
 
+  // initialize user wave array
+  for (int i = 0; i < PHASE_SZ; ++i) {
+    *userWave = *sawDown;
+  }
+
   for (int i = 0; i < NUM_ANALOG_INPUTS; i++) {
     analogVal[i] = 0;
     analogOld[i] = -1;
@@ -163,7 +168,7 @@ void loop()
     }
     if (switches[m] == TOGGLE_LOWER) {
       switchVal[m] == 127 ? enablePadX = 1 : enablePadX = 0;
-    }        
+    }
   }
 
   // read and output analog MIDI controllers
@@ -192,7 +197,7 @@ void loop()
         if ((currVal >= minPadInt) && (currVal <= maxPadInt_y)) {
           analogVal[ctIdx] = map(currVal, maxPadInt_y, minPadInt, 0, 127);
           analogVal[ctIdx] = constrain(analogVal[ctIdx], 0, 127);
-        }        
+        }
         break;
       }
     case POT_BROWN_BOTTOM:
@@ -221,7 +226,7 @@ void loop()
   }
 
   if (analogVal[ctIdx] != analogOld[ctIdx]) {
-    if( (ctIdx == PAD_X && enablePadX) || (ctIdx == PAD_Y && enablePadY) || (ctIdx != PAD_X && ctIdx != PAD_Y)) {
+    if ( (ctIdx == PAD_X && enablePadX) || (ctIdx == PAD_Y && enablePadY) || (ctIdx != PAD_X && ctIdx != PAD_Y)) {
       msg.data1 = controllers[ctIdx];
       msg.data2 = analogVal[ctIdx];
       Serial.write(msg.commChannel);
@@ -299,13 +304,13 @@ void loop()
   }
   if (lfoMix > 2.0 && lfoMix <= 3.0) {
     alpha = lfoMix - 2.0;
-    tmpMix = (1.0 - alpha) * pgm_read_byte_near(sawUp + lfoPhase) + alpha * pgm_read_byte_near(squ50 + lfoPhase);  
+    tmpMix = (1.0 - alpha) * pgm_read_byte_near(sawUp + lfoPhase) + alpha * pgm_read_byte_near(squ50 + lfoPhase);
   }
   if (lfoMix > 3.0 && lfoMix <= 4.0) {
     alpha = lfoMix - 3.0;
-    tmpMix = (1.0 - alpha) * pgm_read_byte_near(squ50 + lfoPhase) + alpha * pgm_read_byte_near(sawDown + lfoPhase);   
-  }      
-  
+    tmpMix = (1.0 - alpha) * pgm_read_byte_near(squ50 + lfoPhase) + alpha * userWave[lfoPhase];
+  }
+
   // send LFO output to LED, CV, and MIDI
   volatile uint8_t ledValue = uint8_t(tmpMix);
   volatile uint8_t lfoValue = uint8_t(tmpMix * lfoDepth / 1.25);

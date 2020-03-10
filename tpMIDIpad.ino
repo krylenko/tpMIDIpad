@@ -114,7 +114,7 @@ void setup()
 
   // initialize user wave array
   for (int i = 0; i < PHASE_SZ; ++i) {
-    *userWave = *sawDown;
+    userWave[i] = pgm_read_byte_near(sawDown + i);
   }
 
   for (int i = 0; i < NUM_ANALOG_INPUTS; i++) {

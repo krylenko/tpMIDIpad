@@ -14,7 +14,7 @@ double lfoMix = 0.0;
 uint16_t lfoPhase = 0;
 uint16_t lfoSpeed = 5;
 double lfoDepth = 1.0;
-uint8_t lfoDownsampleFactor = 10;   // ramp this up for noise waveforms
+uint8_t lfoDownsampleFactor = 8;   // ramp this up for noise waveforms
 uint16_t lastLFOvalue = 1000;
 bool resetLFO = false;
 bool oneShot = false;
@@ -134,9 +134,15 @@ void setup()
     sendLow[k] = false;
   }
 
-  Serial.begin(115200);
+  Serial.begin(31250);
   delay(500);
 
+}
+
+void sendMIDI() {
+  Serial.write(msg.commChannel);
+  Serial.write(msg.data1);
+  Serial.write(msg.data2);  
 }
 
 void loop()
@@ -155,11 +161,7 @@ void loop()
     if ( switchVal[m] != switchOld[m] ) {
       msg.data1 = controllers[m + NUM_ANALOG_INPUTS];
       msg.data2 = switchVal[m];
-      /*
-      Serial.write(msg.commChannel);
-      Serial.write(msg.data1);
-      Serial.write(msg.data2);
-      */
+      sendMIDI();
       switchOld[m] = switchVal[m];
     }
     if (switches[m] == TOGGLE_TOP_LEFT) {
@@ -188,7 +190,7 @@ void loop()
         currVal = analogRead(ctIdx);
         if ( currVal >= minPadInt && currVal <= maxPadInt_x - 20 ) {
           analogVal[ctIdx] = map(currVal, minPadInt, maxPadInt_x - 20, 0, 127);
-          analogVal[ctIdx] = constrain(analogVal[ctIdx], 0, 127);
+          analogVal[ctIdx] = constrain(analogVal[ctIdx], 0, 127);                   
         }
         break;
       }
@@ -198,7 +200,7 @@ void loop()
         currVal = analogRead(ctIdx);
         if ((currVal >= minPadInt) && (currVal <= maxPadInt_y)) {
           analogVal[ctIdx] = map(currVal, maxPadInt_y, minPadInt, 0, 127);
-          analogVal[ctIdx] = constrain(analogVal[ctIdx], 0, 127);
+          analogVal[ctIdx] = constrain(analogVal[ctIdx], 0, 127);            
         }
         break;
       }
@@ -211,7 +213,7 @@ void loop()
     case POT_BROWN_TOP:
       {
         analogVal[ctIdx] = currVal >> 3;
-        lfoSpeed = int(currVal / 10.0) + 1;
+        lfoSpeed = int(currVal / 11.0) + 1;
         break;
       }
     case POT_TOP_RIGHT:
@@ -231,11 +233,7 @@ void loop()
     if ( (ctIdx == PAD_X && enablePadX) || (ctIdx == PAD_Y && enablePadY) || (ctIdx != PAD_X && ctIdx != PAD_Y)) {
       msg.data1 = controllers[ctIdx];
       msg.data2 = analogVal[ctIdx];
-      /*
-      Serial.write(msg.commChannel);
-      Serial.write(msg.data1);
-      Serial.write(msg.data2);
-      */
+      sendMIDI();
     }
     analogOld[ctIdx] = analogVal[ctIdx];
   }
@@ -254,8 +252,10 @@ void loop()
         ++lowCt[p];
       }
     }
+    
     if (highCt[p] == CHANGE_VALID_CT) {
       sendHigh[p] = true;
+      
       if (buttons[p] == BUTTON_RIGHT_BOTTOM) {
         oneShot = oneShot ? false : true;        
       } else if (buttons[p] == PUSH_ROUND) {
@@ -269,22 +269,14 @@ void loop()
     if (sendHigh[p]) {
       msg.data1 = controllers[p + NUM_ANALOG_INPUTS + NUM_SWITCHES];
       msg.data2 = 127;
-      /*
-      Serial.write(msg.commChannel);
-      Serial.write(msg.data1);
-      Serial.write(msg.data2);
-      */
+      sendMIDI();
       sendHigh[p] = false;
       lowCt[p] = 0;
     }
     if (sendLow[p]) {
       msg.data1 = controllers[p + NUM_ANALOG_INPUTS + NUM_SWITCHES];
       msg.data2 = 0;
-      /*
-      Serial.write(msg.commChannel);
-      Serial.write(msg.data1);
-      Serial.write(msg.data2);
-      */
+      sendMIDI();
       sendLow[p] = false;
       highCt[p] = 0;
     }
@@ -325,11 +317,7 @@ void loop()
   if (enableLFO && (midiLFOValue != lastLFOvalue)) {
     msg.data1 = LFO_CC;
     msg.data2 = midiLFOValue;
-    /*
-    Serial.write(msg.commChannel);
-    Serial.write(msg.data1);
-    Serial.write(msg.data2);
-    */
+    sendMIDI();
     lastLFOvalue = midiLFOValue;
   }
 

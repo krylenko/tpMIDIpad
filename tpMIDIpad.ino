@@ -8,14 +8,11 @@
 
 #define LED_OUT             5
 #define LFO_OUT             3
-#define LFO_SPD_DIVISIONS   5
 #define LFO_CC              116
 
 double lfoMix = 0.0;
 uint16_t lfoPhase = 0;
 uint16_t lfoSpeed = 5;
-double lfoSpdDivisions[LFO_SPD_DIVISIONS] = {40.0, 20.0, 12.0, 3.0, 1.0};
-uint8_t lfoSpdIdx = 1;
 double lfoDepth = 1.0;
 uint8_t lfoDownsampleFactor = 10;   // ramp this up for noise waveforms
 uint16_t lastLFOvalue = 1000;
@@ -214,7 +211,6 @@ void loop()
     case POT_BROWN_TOP:
       {
         analogVal[ctIdx] = currVal >> 3;
-        //lfoSpeed = int(currVal / lfoSpdDivisions[lfoSpdIdx]) + 1;
         lfoSpeed = int(currVal / 10.0) + 1;
         break;
       }
@@ -260,19 +256,7 @@ void loop()
     }
     if (highCt[p] == CHANGE_VALID_CT) {
       sendHigh[p] = true;
-      if (buttons[p] == BUTTON_LEFT_TOP) {
-        // raise LFO speed
-        ++lfoSpdIdx;
-        if (lfoSpdIdx >= LFO_SPD_DIVISIONS) {
-          lfoSpdIdx = LFO_SPD_DIVISIONS - 1;
-        }
-      } else if (buttons[p] == BUTTON_LEFT_BOTTOM) {
-        // lower LFO speed
-        --lfoSpdIdx;
-        if (lfoSpdIdx <= 0) {
-          lfoSpdIdx = 0;
-        }
-      } else if (buttons[p] == BUTTON_RIGHT_BOTTOM) {
+      if (buttons[p] == BUTTON_RIGHT_BOTTOM) {
         oneShot = oneShot ? false : true;        
       } else if (buttons[p] == PUSH_ROUND) {
         resetLFO = true;

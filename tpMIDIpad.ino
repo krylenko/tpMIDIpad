@@ -12,7 +12,7 @@
 #define LFO_CC              116
 
 double lfoMix = 0.0;
-uint8_t lfoPhase = 0;
+uint16_t lfoPhase = 0;
 uint16_t lfoSpeed = 5;
 double lfoSpdDivisions[LFO_SPD_DIVISIONS] = {40.0, 20.0, 12.0, 3.0, 1.0};
 uint8_t lfoSpdIdx = 1;
@@ -20,6 +20,7 @@ double lfoDepth = 1.0;
 uint8_t lfoDownsampleFactor = 10;   // ramp this up for noise waveforms
 uint16_t lastLFOvalue = 1000;
 bool resetLFO = false;
+bool oneShot = false;
 
 // define switch and button (momentary) inputs
 #define NUM_SWITCHES        3
@@ -136,7 +137,7 @@ void setup()
     sendLow[k] = false;
   }
 
-  Serial.begin(31250);
+  Serial.begin(115200);
   delay(500);
 
 }
@@ -157,9 +158,11 @@ void loop()
     if ( switchVal[m] != switchOld[m] ) {
       msg.data1 = controllers[m + NUM_ANALOG_INPUTS];
       msg.data2 = switchVal[m];
+      /*
       Serial.write(msg.commChannel);
       Serial.write(msg.data1);
       Serial.write(msg.data2);
+      */
       switchOld[m] = switchVal[m];
     }
     if (switches[m] == TOGGLE_TOP_LEFT) {
@@ -232,9 +235,11 @@ void loop()
     if ( (ctIdx == PAD_X && enablePadX) || (ctIdx == PAD_Y && enablePadY) || (ctIdx != PAD_X && ctIdx != PAD_Y)) {
       msg.data1 = controllers[ctIdx];
       msg.data2 = analogVal[ctIdx];
+      /*
       Serial.write(msg.commChannel);
       Serial.write(msg.data1);
       Serial.write(msg.data2);
+      */
     }
     analogOld[ctIdx] = analogVal[ctIdx];
   }
@@ -267,6 +272,8 @@ void loop()
         if (lfoSpdIdx <= 0) {
           lfoSpdIdx = 0;
         }
+      } else if (buttons[p] == BUTTON_RIGHT_BOTTOM) {
+        oneShot = oneShot ? false : true;        
       } else if (buttons[p] == PUSH_ROUND) {
         resetLFO = true;
       }
@@ -278,18 +285,22 @@ void loop()
     if (sendHigh[p]) {
       msg.data1 = controllers[p + NUM_ANALOG_INPUTS + NUM_SWITCHES];
       msg.data2 = 127;
+      /*
       Serial.write(msg.commChannel);
       Serial.write(msg.data1);
       Serial.write(msg.data2);
+      */
       sendHigh[p] = false;
       lowCt[p] = 0;
     }
     if (sendLow[p]) {
       msg.data1 = controllers[p + NUM_ANALOG_INPUTS + NUM_SWITCHES];
       msg.data2 = 0;
+      /*
       Serial.write(msg.commChannel);
       Serial.write(msg.data1);
       Serial.write(msg.data2);
+      */
       sendLow[p] = false;
       highCt[p] = 0;
     }
@@ -330,9 +341,11 @@ void loop()
   if (enableLFO && (midiLFOValue != lastLFOvalue)) {
     msg.data1 = LFO_CC;
     msg.data2 = midiLFOValue;
+    /*
     Serial.write(msg.commChannel);
     Serial.write(msg.data1);
     Serial.write(msg.data2);
+    */
     lastLFOvalue = midiLFOValue;
   }
 
@@ -341,7 +354,14 @@ void loop()
       lfoPhase = 0;
       resetLFO = false;
     } else {
-      lfoPhase = (lfoPhase + lfoSpeed) % PHASE_SZ;      
+      lfoPhase += lfoSpeed;
+      if (lfoPhase >= (PHASE_SZ - 1)) {
+        if (oneShot) {
+          lfoPhase = PHASE_SZ - 1;
+        } else {
+          lfoPhase = lfoPhase % (PHASE_SZ - 1);             
+        }
+      }   
     }
     lfoDownsampleCt = 0;
   }

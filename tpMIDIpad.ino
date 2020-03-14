@@ -14,7 +14,7 @@ double lfoMix = 0.0;
 uint16_t lfoPhase = 0;
 uint16_t lfoSpeed = 5;
 double lfoDepth = 1.0;
-uint8_t lfoDownsampleFactor = 8;   // ramp this up for noise waveforms
+uint8_t lfoDownsampleFactor = 8;
 uint16_t lastLFOvalue = 1000;
 bool resetLFO = false;
 bool oneShot = false;
@@ -112,11 +112,6 @@ void setup()
   pinMode(LFO_OUT, OUTPUT);
   digitalWrite(LFO_OUT, 1);
 
-  // initialize user wave array
-  for (int i = 0; i < PHASE_SZ; ++i) {
-    userWave[i] = pgm_read_byte_near(sawDown + i);
-  }
-
   for (int i = 0; i < NUM_ANALOG_INPUTS; i++) {
     analogVal[i] = 0;
     analogOld[i] = -1;
@@ -133,7 +128,7 @@ void setup()
     sendHigh[k] = false;
     sendLow[k] = false;
   }
-
+  randomSeed(analogRead(0));
   Serial.begin(31250);
   delay(500);
 
@@ -143,6 +138,17 @@ void sendMIDI() {
   Serial.write(msg.commChannel);
   Serial.write(msg.data1);
   Serial.write(msg.data2);  
+}
+
+uint8_t noise() {
+  static uint8_t noise = uint8_t(random(0, 256));
+  static long counter = 0;
+  if ((lfoPhase < (PHASE_SZ - 1)) && (counter >= (10 * lfoDownsampleFactor))) {
+    noise = uint8_t(random(0, 256));
+    counter = 0;
+  }
+  ++counter;
+  return noise;
 }
 
 void loop()
@@ -287,11 +293,11 @@ void loop()
   double alpha = 1.0;
   if (lfoMix >= 0.0 && lfoMix <= 1.0) {
     alpha = lfoMix;
-    tmpMix = (1.0 - alpha) * pgm_read_byte_near(tri + lfoPhase) + alpha * pgm_read_byte_near(noise + lfoPhase);
+    tmpMix = (1.0 - alpha) * pgm_read_byte_near(tri + lfoPhase) + alpha * noise();
   }
   if (lfoMix > 1.0 && lfoMix <= 2.0) {
     alpha = lfoMix - 1.0;
-    tmpMix = (1.0 - alpha) * pgm_read_byte_near(noise + lfoPhase) + alpha * pgm_read_byte_near(sawUp + lfoPhase);
+    tmpMix = (1.0 - alpha) * noise() + alpha * pgm_read_byte_near(sawUp + lfoPhase);
   }
   if (lfoMix > 2.0 && lfoMix <= 3.0) {
     alpha = lfoMix - 2.0;
@@ -299,7 +305,7 @@ void loop()
   }
   if (lfoMix > 3.0 && lfoMix <= 4.0) {
     alpha = lfoMix - 3.0;
-    tmpMix = (1.0 - alpha) * pgm_read_byte_near(squ50 + lfoPhase) + alpha * userWave[lfoPhase];
+    tmpMix = (1.0 - alpha) * pgm_read_byte_near(squ50 + lfoPhase) + alpha * pgm_read_byte_near(sawDown + lfoPhase);
   }
 
   // send LFO output to LED, CV, and MIDI

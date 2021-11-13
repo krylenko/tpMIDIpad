@@ -7,6 +7,8 @@
 #define MIDI_CHANNEL        1
 
 #define LED_OUT             5
+#define PAD_X_OUT           10
+#define PAD_Y_OUT           9
 #define LFO_OUT             3
 #define LFO_CC              116
 
@@ -18,13 +20,14 @@ uint8_t lfoDownsampleFactor = 8;
 uint16_t lastLFOvalue = 1000;
 bool resetLFO = false;
 bool oneShot = false;
+bool highSpeedPWM = true;
 
 // define switch and button (momentary) inputs
 #define NUM_SWITCHES        3
 enum {
-  TOGGLE_LOWER = 4,
-  TOGGLE_TOP_LEFT = 9,
-  TOGGLE_TOP_RIGHT = 10
+  TOGGLE_LOWER = 2,
+  TOGGLE_TOP_LEFT = 4,
+  TOGGLE_TOP_RIGHT = 13
 };
 int switches[NUM_SWITCHES] = {
   TOGGLE_LOWER,
@@ -60,7 +63,7 @@ bool sendLow[NUM_BUTTONS];
 enum {
   PAD_X,
   PAD_Y,
-  EXP_PEDAL,
+  PRESSURE,
   POT_TOP_RIGHT,
   POT_BROWN_BOTTOM,
   POT_BROWN_TOP
@@ -73,7 +76,7 @@ enum {
 int controllers[NUM_ANALOG_INPUTS + NUM_SWITCHES + NUM_BUTTONS] = {
   102,      // A0     pad X               CC 102
   103,      // A1     pad Y               CC 103
-  104,      // A2     exp pedal           CC 104
+  104,      // A2     pressure pad        CC 104
   105,      // A3     top knob            CC 105
   106,      // A4     left knob top       CC 106
   107,      // A5     left knob bot       CC 107
@@ -103,14 +106,31 @@ t_midiMsg msg;
 uint16_t minPadInt = 30;
 uint16_t maxPadInt_x = 585;
 uint16_t maxPadInt_y = 690;
+uint16_t minPressInt = 30;
+uint16_t maxPressInt = 900;
+
+void pwmHighSpeed() {
+  TCCR1B = TCCR1B & B11111000 | B00000001;
+  TCCR2B = TCCR2B & B11111000 | B00000001;
+}
+
+void pwmLowSpeed() {
+  TCCR1B = TCCR1B & B11111000 | B00000011;
+  TCCR2B = TCCR2B & B11111000 | B00000100;
+}
 
 void setup()
 {
 
   pinMode(LED_OUT, OUTPUT);
   digitalWrite(LED_OUT, 1);
+  pinMode(PAD_X_OUT, OUTPUT);
+  digitalWrite(PAD_X_OUT, 1);
+  pinMode(PAD_Y_OUT, OUTPUT);
+  digitalWrite(PAD_Y_OUT, 1);
   pinMode(LFO_OUT, OUTPUT);
   digitalWrite(LFO_OUT, 1);
+  pwmHighSpeed();
 
   for (int i = 0; i < NUM_ANALOG_INPUTS; i++) {
     analogVal[i] = 0;
@@ -137,7 +157,7 @@ void setup()
 void sendMIDI() {
   Serial.write(msg.commChannel);
   Serial.write(msg.data1);
-  Serial.write(msg.data2);  
+  Serial.write(msg.data2);
 }
 
 uint8_t noise() {
@@ -210,6 +230,18 @@ void loop()
         }
         break;
       }
+    case PRESSURE:
+      {
+        delay(7);
+        currVal = analogRead(ctIdx);
+        if ((currVal >= minPressInt) && (currVal <= maxPressInt)) {
+          //analogVal[ctIdx] = map(currVal, maxPressInt, minPressInt, 0, 127);
+          analogVal[ctIdx] = map(currVal, maxPressInt, minPressInt, 0, 1023);
+          analogVal[ctIdx] = pow(analogVal[ctIdx], 0.7);
+          analogVal[ctIdx] = constrain(analogVal[ctIdx], 0, 127);       
+        }
+        break;
+      }
     case POT_BROWN_BOTTOM:
       {
         analogVal[ctIdx] = currVal >> 3;
@@ -239,6 +271,18 @@ void loop()
     if ( (ctIdx == PAD_X && enablePadX) || (ctIdx == PAD_Y && enablePadY) || (ctIdx != PAD_X && ctIdx != PAD_Y)) {
       msg.data1 = controllers[ctIdx];
       msg.data2 = analogVal[ctIdx];
+      if (ctIdx == PAD_X) {
+        analogWrite(PAD_X_OUT, min(analogVal[ctIdx] * 2, 255));
+      }
+      if (ctIdx == PAD_Y) {
+        analogWrite(PAD_Y_OUT, min(analogVal[ctIdx] * 2, 255)); 
+      }
+      sendMIDI();
+    }
+    if (ctIdx == PRESSURE && !enablePadY) {
+      analogWrite(PAD_Y_OUT, min(analogVal[ctIdx] * 2, 255));
+      msg.data1 = controllers[ctIdx];
+      msg.data2 = analogVal[ctIdx];
       sendMIDI();
     }
     analogOld[ctIdx] = analogVal[ctIdx];
@@ -266,6 +310,18 @@ void loop()
         oneShot = oneShot ? false : true;        
       } else if (buttons[p] == PUSH_ROUND) {
         resetLFO = true;
+      } else if (buttons[p] == BUTTON_RIGHT_TOP) {
+        if (highSpeedPWM) {
+          pwmLowSpeed();
+          highSpeedPWM = false;
+        } else {
+          pwmHighSpeed();
+          highSpeedPWM = true;
+        }
+      } else if (buttons[p] == BUTTON_LEFT_TOP) {
+          lfoDownsampleFactor <= 4 ? lfoDownsampleFactor = 4 : lfoDownsampleFactor /= 2;          
+      } else if (buttons[p] == BUTTON_LEFT_BOTTOM) {
+          lfoDownsampleFactor >= 32 ? lfoDownsampleFactor = 32 : lfoDownsampleFactor *= 2;
       }
     }
     if (lowCt[p] == CHANGE_VALID_CT) {
